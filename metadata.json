@@ -1,0 +1,13 @@
+{
+  "name": "MeterReader Pro v3 Extreme",
+  "description": "AI-powered meter reading system with real-time OCR and automated billing for Sutera Square. Features live detection and daily lock security.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI Vision OCR",
+    "Automated Billing",
+    "WhatsApp Reporting"
+  ]
+}

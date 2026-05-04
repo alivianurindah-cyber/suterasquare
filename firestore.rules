@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.lotNumber is string && data.lotNumber.size() > 0 && data.lotNumber.size() <= 50 &&
+               data.phoneNumber is string && data.phoneNumber.size() > 0 && data.phoneNumber.size() <= 20 &&
+               data.role in ["user", "admin"] &&
+               data.createdAt is timestamp;
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                      isValidUser(incoming()) && 
+                      incoming().role == "user"; // Cannot self-promote to admin
+
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin()) &&
+                      isValidUser(incoming()) &&
+                      (
+                        // User can change phone but not lotNumber or role
+                        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['phoneNumber'])) ||
+                        isAdmin()
+                      );
+    }
+
+    // Readings Collection
+    match /readings/{readingId} {
+      function isValidReading(data) {
+        return data.userId is string && data.userId.size() > 0 &&
+               data.lotNumber is string && data.lotNumber.size() > 0 &&
+               data.meterType in ["water", "electric"] &&
+               data.readingValue is number && data.readingValue >= 0 &&
+               data.baselineReading is number && data.baselineReading >= 0 &&
+               data.netUsage is number &&
+               data.totalCost is number &&
+               data.timestamp is timestamp &&
+               data.isVerified is bool;
+      }
+
+      allow get: if isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.lotNumber == existing().lotNumber || isAdmin());
+      allow list: if isSignedIn() && (
+        (request.query.limit <= 100 && resource.data.lotNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.lotNumber) || 
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() && 
+                      isValidReading(incoming()) &&
+                      incoming().userId == request.auth.uid &&
+                      incoming().lotNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.lotNumber &&
+                      incoming().timestamp == request.time;
+
+      allow delete: if isAdmin();
+    }
+
+    // Admins Collection
+    match /admins/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if false; // Only manageable through GCP console for safety
+    }
+  }
+}

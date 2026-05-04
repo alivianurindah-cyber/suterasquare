@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "Represents a resident or unit owner at Sutera Square.",
+      "type": "object",
+      "properties": {
+        "lotNumber": { "type": "string", "description": "Unit lot number (e.g., A-01-01)" },
+        "phoneNumber": { "type": "string", "description": "User's registered phone number" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User permission level" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account registration date" }
+      },
+      "required": ["lotNumber", "phoneNumber", "role", "createdAt"]
+    },
+    "reading": {
+      "title": "Meter Reading",
+      "description": "A record of a water or electricity meter reading.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Reference to the local user document ID" },
+        "lotNumber": { "type": "string", "description": "Lot number at time of reading" },
+        "meterType": { "type": "string", "enum": ["water", "electric"], "description": "Type of meter scanned" },
+        "readingValue": { "type": "number", "description": "Total reading from the meter" },
+        "baselineReading": { "type": "number", "description": "Previous reading used for calculation" },
+        "netUsage": { "type": "number", "description": "Calculated usage (Reading - Baseline)" },
+        "totalCost": { "type": "number", "description": "Calculated cost in RM" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the reading was saved" },
+        "isVerified": { "type": "boolean", "description": "Whether the reading was manually verified by user" }
+      },
+      "required": ["userId", "lotNumber", "meterType", "readingValue", "baselineReading", "netUsage", "totalCost", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Collection of registered users."
+    },
+    "/readings/{readingId}": {
+      "schema": "reading",
+      "description": "Collection of all meter readings."
+    },
+    "/admins/{userId}": {
+      "schema": { "type": "object", "properties": { "email": { "type": "string" } } },
+      "description": "Administrative access list."
+    }
+  }
+}
