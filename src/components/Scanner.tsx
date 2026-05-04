@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { detectMeterReading } from '../services/geminiService';
 import { calculateElectricity, calculateWater } from '../services/billing';
-import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { db, auth, OperationType, handleFirestoreError } from '../lib/firebase';
 import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { cn } from '../App';
 
@@ -281,6 +281,14 @@ export default function Scanner({ meterType, profile, onBack }: ScannerProps) {
               screenshotFormat="image/jpeg"
               videoConstraints={{ facingMode: 'environment' }}
               className="w-full h-full object-cover"
+              disablePictureInPicture={true}
+              forceScreenshotSourceSize={false}
+              ignoreVideoOrientation={true}
+              imageSmoothing={true}
+              mirrored={false}
+              onUserMedia={() => {}}
+              onUserMediaError={() => {}}
+              screenshotQuality={1}
             />
             {/* Scanner Overlays */}
             <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">

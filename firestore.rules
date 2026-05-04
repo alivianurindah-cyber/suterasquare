@@ -6,6 +6,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Connection Test Path
+    match /test/connection {
+      allow read: if true;
+    }
+
     // Helper Functions
     function isSignedIn() {
       return request.auth != null;
@@ -30,7 +35,8 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin")
       );
     }
 
@@ -44,7 +50,14 @@ service cloud.firestore {
       }
 
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      
+      // Allow searching for own profile during login
+      allow list: if isAdmin() || (
+        isSignedIn() && 
+        request.query.limit <= 5 && 
+        resource.data.lotNumber != null && 
+        resource.data.phoneNumber != null
+      );
       
       allow create: if isSignedIn() && request.auth.uid == userId && 
                       isValidUser(incoming()) && 

@@ -141,27 +141,33 @@ export default function App() {
     <div className="min-h-screen bg-[#E6E6E6] font-sans text-[#141414] overflow-x-hidden">
       <AnimatePresence mode="wait">
         {!user || currentView === 'login' ? (
-          <Login key="login" onLoginSuccess={handleLoginSuccess} />
+          <div key="login">
+            <Login onLoginSuccess={handleLoginSuccess} />
+          </div>
         ) : currentView === 'scanner' ? (
-          <Scanner 
-            key="scanner" 
-            meterType={scanType!} 
-            profile={profile}
-            onBack={() => setCurrentView('dashboard')} 
-          />
+          <div key="scanner" className="h-full">
+            <Scanner 
+              meterType={scanType!} 
+              profile={profile}
+              onBack={() => setCurrentView('dashboard')} 
+            />
+          </div>
         ) : currentView === 'admin' ? (
-          <AdminDashboard key="admin" onBack={() => setCurrentView('dashboard')} />
+          <div key="admin">
+            <AdminDashboard onBack={() => setCurrentView('dashboard')} />
+          </div>
         ) : (
-          <Dashboard 
-            key="dashboard" 
-            profile={profile} 
-            onScan={(type) => {
-              setScanType(type);
-              setCurrentView('scanner');
-            }}
-            onViewAdmin={() => setCurrentView('admin')}
-            onLogout={handleLogout}
-          />
+          <div key="dashboard">
+            <Dashboard 
+              profile={profile} 
+              onScan={(type) => {
+                setScanType(type);
+                setCurrentView('scanner');
+              }}
+              onViewAdmin={() => setCurrentView('admin')}
+              onLogout={handleLogout}
+            />
+          </div>
         )}
       </AnimatePresence>
     </div>
