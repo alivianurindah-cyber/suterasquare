@@ -9,9 +9,12 @@ import {
   LogOut, 
   Plus, 
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { calculateElectricity, calculateWater } from '../services/billing';
+import { cn } from '../App';
 
 interface DashboardProps {
   profile: any;
@@ -23,6 +26,8 @@ interface DashboardProps {
 export default function Dashboard({ profile, onScan, onViewAdmin, onLogout }: DashboardProps) {
   const [recentReadings, setRecentReadings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showElectricDetails, setShowElectricDetails] = useState(false);
+  const [showWaterDetails, setShowWaterDetails] = useState(false);
 
   useEffect(() => {
     fetchLatestReadings();
@@ -48,11 +53,20 @@ export default function Dashboard({ profile, onScan, onViewAdmin, onLogout }: Da
 
   const getUsageSummary = (type: 'water' | 'electric') => {
     const last = recentReadings.find(r => r.meterType === type);
-    if (!last) return { usage: 'N/A', cost: 'N/A' };
+    if (!last) return { usage: 'N/A', cost: 'N/A', breakdown: null };
+    
+    let breakdown = null;
+    if (type === 'electric') {
+      breakdown = calculateElectricity(last.netUsage);
+    } else {
+      breakdown = calculateWater(last.netUsage);
+    }
+
     return { 
       usage: last.netUsage.toFixed(2), 
       cost: last.totalCost.toFixed(2),
-      unit: type === 'water' ? 'm³' : 'kWh'
+      unit: type === 'water' ? 'm³' : 'kWh',
+      breakdown
     };
   };
 
@@ -86,49 +100,115 @@ export default function Dashboard({ profile, onScan, onViewAdmin, onLogout }: Da
 
       {/* Quick Action Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        <motion.button 
-          whileHover={{ y: -5 }}
-          onClick={() => onScan('electric')}
-          className="card-hardware p-8 flex flex-col items-start gap-4 text-left group relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Zap className="w-24 h-24" />
-          </div>
-          <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-            <Zap className="text-yellow-500 w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold">Meter Elektrik</h3>
-            <p className="text-white/40 text-sm mb-4">Mula imbasan AI Lensa Elektrik</p>
-            <div className="flex items-baseline gap-2">
-              <span className="data-value text-yellow-500">{electricSummary.usage}</span>
-              <span className="label-micro uppercase">{electricSummary.unit}</span>
+        <div className="flex flex-col gap-4">
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="card-hardware p-8 flex flex-col items-start gap-4 text-left group relative overflow-hidden"
+          >
+            <div onClick={() => onScan('electric')} className="absolute inset-0 z-0" />
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Zap className="w-24 h-24" />
             </div>
-            <p className="text-white/60 text-xs mt-1">Anggaran: RM {electricSummary.cost}</p>
-          </div>
-        </motion.button>
+            <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center relative z-10">
+              <Zap className="text-yellow-500 w-6 h-6" />
+            </div>
+            <div className="w-full relative z-10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold">Meter Elektrik</h3>
+                  <p className="text-white/40 text-sm mb-4">Mula imbasan AI Lensa Elektrik</p>
+                </div>
+                {electricSummary.breakdown && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setShowElectricDetails(!showElectricDetails); }}
+                    className="p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 relative z-20"
+                  >
+                    {showElectricDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="data-value text-yellow-500">{electricSummary.usage}</span>
+                <span className="label-micro uppercase">{electricSummary.unit}</span>
+              </div>
+              <p className="text-white/60 text-xs mt-1">Anggaran: RM {electricSummary.cost}</p>
+              
+              {showElectricDetails && electricSummary.breakdown && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  className="mt-6 pt-4 border-t border-white/10 space-y-2"
+                >
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider">
+                    <span className="text-white/40">Caj Semasa</span>
+                    <span className="text-white">RM {electricSummary.breakdown.currentCharge.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider">
+                    <span className="text-white/40">ICPT</span>
+                    <span className="text-white">RM {electricSummary.breakdown.icpt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider">
+                    <span className="text-white/40">KWTBB (1.6%)</span>
+                    <span className="text-white">RM {electricSummary.breakdown.kwtbb.toFixed(2)}</span>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </div>
 
-        <motion.button 
-          whileHover={{ y: -5 }}
-          onClick={() => onScan('water')}
-          className="card-hardware p-8 flex flex-col items-start gap-4 text-left group relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Droplet className="w-24 h-24" />
-          </div>
-          <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-            <Droplet className="text-blue-500 w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold">Meter Air</h3>
-            <p className="text-white/40 text-sm mb-4">Mula imbasan AI Lensa Air</p>
-            <div className="flex items-baseline gap-2">
-              <span className="data-value text-blue-500">{waterSummary.usage}</span>
-              <span className="label-micro uppercase">{waterSummary.unit}</span>
+        <div className="flex flex-col gap-4">
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="card-hardware p-8 flex flex-col items-start gap-4 text-left group relative overflow-hidden"
+          >
+            <div onClick={() => onScan('water')} className="absolute inset-0 z-0" />
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Droplet className="w-24 h-24" />
             </div>
-            <p className="text-white/60 text-xs mt-1">Anggaran: RM {waterSummary.cost}</p>
-          </div>
-        </motion.button>
+            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center relative z-10">
+              <Droplet className="text-blue-500 w-6 h-6" />
+            </div>
+            <div className="w-full relative z-10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold">Meter Air</h3>
+                  <p className="text-white/40 text-sm mb-4">Mula imbasan AI Lensa Air</p>
+                </div>
+                {waterSummary.breakdown && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setShowWaterDetails(!showWaterDetails); }}
+                    className="p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 relative z-20"
+                  >
+                    {showWaterDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="data-value text-blue-500">{waterSummary.usage}</span>
+                <span className="label-micro uppercase">{waterSummary.unit}</span>
+              </div>
+              <p className="text-white/60 text-xs mt-1">Anggaran: RM {waterSummary.cost}</p>
+
+              {showWaterDetails && waterSummary.breakdown && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  className="mt-6 pt-4 border-t border-white/10 space-y-2"
+                >
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider">
+                    <span className="text-white/40">Kos Asas</span>
+                    <span className="text-white">RM {waterSummary.breakdown.baseCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider">
+                    <span className="text-white/40">Diskaun Lot</span>
+                    <span className="text-red-400">- RM {waterSummary.breakdown.totalDiscount.toFixed(2)}</span>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </div>
       </div>
 
       {/* History List */}

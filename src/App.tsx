@@ -56,19 +56,26 @@ export default function App() {
   const [profile, setProfile] = useState<any>(null);
   const [currentView, setCurrentView] = useState<View>('login');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scanType, setScanType] = useState<'water' | 'electric' | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setUser(u);
-        await fetchProfile(u.uid);
-      } else {
-        setUser(null);
-        setProfile(null);
-        setCurrentView('login');
+      try {
+        if (u) {
+          setUser(u);
+          await fetchProfile(u.uid);
+        } else {
+          setUser(null);
+          setProfile(null);
+          setCurrentView('login');
+        }
+      } catch (err) {
+        console.error("Auth state error:", err);
+        setError("Gagal memuat profil pengguna. Sila cuba lagi.");
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
     return unsub;
   }, []);
@@ -100,6 +107,22 @@ export default function App() {
   const handleLogout = () => {
     auth.signOut();
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#151619] flex flex-col items-center justify-center p-6 text-center">
+        <AlertCircle className="text-red-500 w-16 h-16 mb-4" />
+        <h2 className="text-white text-xl font-bold mb-2">Ralat Konfigurasi</h2>
+        <p className="text-white/60 mb-6 max-w-xs">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="btn-primary px-8"
+        >
+          Muat Semula
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
