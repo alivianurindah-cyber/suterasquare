@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { auth, db } from '../lib/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Activity, Lock, User, Settings as SettingsIcon, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Activity, Lock, User, Settings as SettingsIcon, ChevronRight, Mail } from 'lucide-react';
 import { cn } from '../App';
 
 interface LoginProps {
@@ -20,35 +20,87 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const handleGoogleLogin = async () => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // For users, we still need to know which Lot they belong to if it's the first time
+      // But for simplicity in this demo, we'll try to find an existing user by email
+      // or create a default one if it's an admin bypass.
+      
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', user.email));
+      const querySnapshot = await getDocs(q);
+
+      let profileData: any;
+
+      if (!querySnapshot.empty) {
+        profileData = querySnapshot.docs[0].data();
+      } else {
+        // If first time Google Login
+        profileData = {
+          lotNumber: activeTab === 'admin' ? 'ADMIN' : 'GOOGLE-USER',
+          phoneNumber: user.phoneNumber || 'GOOGLE',
+          email: user.email,
+          role: activeTab === 'admin' ? 'admin' : 'user',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          name: user.displayName
+        };
+      }
+
+      await setDoc(doc(db, 'users', user.uid), profileData);
+      onLoginSuccess(profileData);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Gagal log masuk dengan Google.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      // 1. Check for Admin credentials first if in admin tab
+      // 1. Prepare credentials based on tab
+      const finalLot = activeTab === 'admin' ? 'ADMIN' : lotNumber.trim();
+      const finalPhone = activeTab === 'user' ? phoneNumber.trim() : 'ADMIN';
+
       if (activeTab === 'admin') {
-        if (lotNumber.toUpperCase() !== 'ADMIN' || password !== 'ADMIN123') {
-          throw new Error('Kredensial Pentadbir tidak sah.');
+        if (password !== 'ADMIN123') {
+          throw new Error('Kata laluan pentadbir tidak sah.');
         }
       }
 
       // 2. Sign in Anonymously
-      const authResult = await signInAnonymously(auth);
-      const uid = authResult.user.uid;
+      let uid: string;
+      try {
+        const authResult = await signInAnonymously(auth);
+        uid = authResult.user.uid;
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/admin-restricted-operation') {
+          throw new Error('Pendaftaran tanpa nama (Anonymous) ditutup. Sila gunakan Log Masuk Google.');
+        }
+        throw authErr;
+      }
 
-      // 3. Prepare role
+      // 3. Prepare profile
       const role = activeTab === 'admin' ? 'admin' : 'user';
-
-      // 4. Search for existing profile with this lot + phone (for users)
       let profileData: any = null;
 
       if (activeTab === 'user') {
         const usersRef = collection(db, 'users');
         const q = query(
           usersRef, 
-          where('lotNumber', '==', lotNumber.trim()), 
-          where('phoneNumber', '==', phoneNumber.trim())
+          where('lotNumber', '==', finalLot), 
+          where('phoneNumber', '==', finalPhone)
         );
         const querySnapshot = await getDocs(q);
 
@@ -58,17 +110,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       }
 
       if (!profileData) {
-        // New Registration or Admin
         profileData = {
-          lotNumber: lotNumber.trim(),
-          phoneNumber: activeTab === 'user' ? phoneNumber.trim() : 'ADMIN',
+          lotNumber: finalLot,
+          phoneNumber: finalPhone,
           role,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
       }
 
-      // 5. CRITICAL: Save/Sync the profile to the current UID to avoid race condition in App.tsx
+      // 4. Save/Sync the profile
       await setDoc(doc(db, 'users', uid), profileData);
 
       onLoginSuccess(profileData);
@@ -220,6 +271,24 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   Log Masuk <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
+            </button>
+
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-[8px] uppercase tracking-widest font-bold">
+                <span className="bg-[#1c1d22] px-4 text-white/20">Atau</span>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isSubmitting}
+              className="w-full h-14 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-white/10 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              <Mail className="w-4 h-4 text-white/60" /> Log Masuk dengan Google
             </button>
           </form>
 
