@@ -37,9 +37,17 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         setTempUser(u);
         setStep('profile');
       }
-    } catch (err) {
-      console.error(err);
-      setError('Gagal log masuk dengan Google. Sila cuba lagi.');
+    } catch (err: any) {
+      console.error("Login Error Details:", err);
+      if (err.code === 'auth/popup-blocked') {
+        setError('Popup disekat oleh pelayar anda. Sila benarkan popup atau buka aplikasi ini dalam tab baru.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Proses log masuk dibatalkan. Sila cuba lagi.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Domain ini tidak dibenarkan untuk log masuk Google. Sila kemas kini tetapan Firebase Authorized Domains.');
+      } else {
+        setError('Gagal log masuk dengan Google. Pastikan anda membuka aplikasi ini dalam tab baru untuk kelancaran log masuk.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -112,6 +120,35 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               >
                 {isSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : <Chrome className="w-5 h-5" />}
                 {isSubmitting ? 'Menyambung...' : 'Masuk dengan Google'}
+              </button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-widest text-white/30">
+                  <span className="bg-[#151619] px-4">Atau</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={async () => {
+                  setIsSubmitting(true);
+                  try {
+                    const { signInAnonymously } = await import('firebase/auth');
+                    const result = await signInAnonymously(auth);
+                    setTempUser(result.user);
+                    setStep('profile');
+                  } catch (err) {
+                    console.error(err);
+                    setError('Gagal log masuk demo.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                className="w-full h-12 bg-white/5 border border-white/10 text-white/60 rounded-full text-xs font-bold hover:bg-white/10 transition-all"
+              >
+                Guna Sebagai Tetamu (Demo)
               </button>
 
               {error && (
