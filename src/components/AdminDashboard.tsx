@@ -9,7 +9,8 @@ import {
   Trash2, 
   Filter, 
   Download,
-  AlertCircle
+  AlertCircle,
+  Share2
 } from 'lucide-react';
 import { cn } from '../App';
 import { calculateElectricity, calculateWater } from '../services/billing';
@@ -70,13 +71,36 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   };
 
   const calculateStats = () => {
-    const totalWater = readings.filter(r => r.meterType === 'water').reduce((acc, curr) => acc + (curr.netUsage || 0), 0);
-    const totalElectric = readings.filter(r => r.meterType === 'electric').reduce((acc, curr) => acc + (curr.netUsage || 0), 0);
-    const totalRevenue = readings.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
-    return { totalWater, totalElectric, totalRevenue };
+    const list = activeTab === 'readings' ? filteredReadings : readings;
+    const totalWater = list.filter(r => r.meterType === 'water').reduce((acc, curr) => acc + (curr.netUsage || 0), 0);
+    const totalElectric = list.filter(r => r.meterType === 'electric').reduce((acc, curr) => acc + (curr.netUsage || 0), 0);
+    const totalRevenue = list.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
+    return { totalWater, totalElectric, totalRevenue, count: list.length };
   };
 
   const stats = calculateStats();
+
+  const handleShare = (method: 'whatsapp' | 'email') => {
+    const dateStr = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+    const text = `*RINGKASAN BACAAN METER SUTERA SQUARE*\n` +
+                 `Tarikh Laporan: ${dateStr}\n` +
+                 `---------------------------\n` +
+                 `Total Rekod: ${stats.count}\n` +
+                 `Jumlah Air: ${stats.totalWater.toFixed(1)} m³\n` +
+                 `Jumlah Elektrik: ${stats.totalElectric.toFixed(1)} kWh\n` +
+                 `---------------------------\n` +
+                 `*ANGGARAN KUTIPAN: RM ${stats.totalRevenue.toLocaleString()}*\n\n` +
+                 `Dijana secara automatik oleh MeterReader Pro v3 AI.`;
+
+    if (method === 'whatsapp') {
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    } else {
+      const subject = encodeURIComponent(`Laporan Bacaan Meter Sutera Square - ${dateStr}`);
+      const body = encodeURIComponent(text.replace(/\*/g, '')); // Remove bold for email
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+  };
 
   const filteredReadings = readings.filter(r => 
     r.lotNumber.toLowerCase().includes(searchTerm.toLowerCase())
@@ -168,9 +192,17 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                   className="w-full bg-white border border-black/10 rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-black transition-all shadow-inner"
                 />
              </div>
-             <button onClick={activeTab === 'readings' ? fetchReadings : fetchUsers} className="flex items-center gap-2 px-6 py-3 bg-white border border-black/10 rounded-2xl hover:bg-gray-50 font-bold text-xs uppercase tracking-widest">
-                <Filter className="w-4 h-4" /> Segarkan Data
-             </button>
+             <div className="flex gap-2">
+               <button 
+                onClick={() => handleShare('whatsapp')}
+                className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-green-500/20"
+               >
+                  <Share2 className="w-4 h-4" /> Kongsi WA
+               </button>
+               <button onClick={activeTab === 'readings' ? fetchReadings : fetchUsers} className="flex items-center gap-2 px-6 py-3 bg-white border border-black/10 rounded-2xl hover:bg-gray-50 font-bold text-xs uppercase tracking-widest">
+                  <Filter className="w-4 h-4" /> Segarkan Data
+               </button>
+             </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -213,18 +245,45 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                       </td>
                       <td className="p-6 text-right">
                         <div className="font-black text-2xl text-green-600">RM {r.totalCost.toFixed(2)}</div>
-                        <div className="text-[9px] text-black/40 uppercase font-bold text-right flex flex-col">
+                        <div className="mt-2 space-y-1">
                           {r.meterType === 'electric' ? (
-                            <>
-                              <span>Caj: RM {calculateElectricity(r.netUsage).currentCharge.toFixed(2)}</span>
-                              <span>ICPT: RM {calculateElectricity(r.netUsage).icpt.toFixed(2)}</span>
-                              <span>KWTBB: RM {calculateElectricity(r.netUsage).kwtbb.toFixed(2)}</span>
-                            </>
+                            (() => {
+                              const calc = calculateElectricity(r.netUsage);
+                              return (
+                                <>
+                                  <div className="flex justify-end gap-2 text-[10px] items-center">
+                                    <span className="text-black/40 uppercase font-bold text-[9px]">Caj Semasa</span>
+                                    <span className="font-mono font-bold text-black/60">RM {calc.currentCharge.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-end gap-2 text-[10px] items-center">
+                                    <span className="text-black/40 uppercase font-bold text-[9px]">ICPT</span>
+                                    <span className={cn("font-mono font-bold", calc.icpt < 0 ? "text-blue-500" : "text-black/60")}>
+                                      RM {calc.icpt.toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-end gap-2 text-[10px] items-center">
+                                    <span className="text-black/40 uppercase font-bold text-[9px]">KWTBB (1.6%)</span>
+                                    <span className="font-mono font-bold text-black/60">RM {calc.kwtbb.toFixed(2)}</span>
+                                  </div>
+                                </>
+                              );
+                            })()
                           ) : (
-                            <>
-                              <span>Asas: RM {calculateWater(r.netUsage).baseCost.toFixed(2)}</span>
-                              <span>Diskaun: RM {calculateWater(r.netUsage).totalDiscount.toFixed(2)}</span>
-                            </>
+                            (() => {
+                              const calc = calculateWater(r.netUsage);
+                              return (
+                                <>
+                                  <div className="flex justify-end gap-2 text-[10px] items-center">
+                                    <span className="text-black/40 uppercase font-bold text-[9px]">Kos Asas</span>
+                                    <span className="font-mono font-bold text-black/60">RM {calc.baseCost.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-end gap-2 text-[10px] items-center">
+                                    <span className="text-black/40 uppercase font-bold text-[9px]">Diskaun</span>
+                                    <span className="font-mono font-bold text-red-500">- RM {calc.totalDiscount.toFixed(2)}</span>
+                                  </div>
+                                </>
+                              );
+                            })()
                           )}
                         </div>
                       </td>

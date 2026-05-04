@@ -291,21 +291,74 @@ export default function Scanner({ meterType, profile, onBack }: ScannerProps) {
               screenshotQuality={1}
             />
             {/* Scanner Overlays */}
-            <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
-              <div className="relative w-full h-full border-2 border-white/20">
-                <div className="laser-line" />
+            <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40 overflow-hidden">
+              <div className="relative w-full h-full border-2 border-white/10">
+                {/* Dynamic Laser Line */}
+                <motion.div 
+                  initial={{ top: '0%' }}
+                  animate={{ 
+                    top: ['0%', '100%', '0%'],
+                    backgroundColor: isAnalyzing ? '#22d3ee' : (detectedValue ? '#10b981' : '#3b82f6'),
+                    boxShadow: isAnalyzing 
+                      ? '0 0 20px #22d3ee, 0 0 40px #22d3ee' 
+                      : (detectedValue ? '0 0 20px #10b981, 0 0 40px #10b981' : '0 0 15px #3b82f6'),
+                    opacity: [0.4, 1, 0.4]
+                  }}
+                  transition={{ 
+                    top: { duration: isAnalyzing ? 1.5 : 3, repeat: Infinity, ease: "linear" },
+                    backgroundColor: { duration: 0.3 },
+                    boxShadow: { duration: 0.3 },
+                    opacity: { duration: 1, repeat: Infinity }
+                  }}
+                  className="absolute left-0 w-full h-[2px] z-10"
+                />
+
                 {/* Search box overlay */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-72 h-40 border-2 border-dashed border-blue-400 absolute flex flex-col justify-between">
+                  <motion.div 
+                    animate={{ 
+                      borderColor: detectedValue ? '#10b981' : '#3b82f6',
+                      scale: isAnalyzing ? 1.02 : 1
+                    }}
+                    className="w-72 h-40 border-2 border-dashed absolute flex flex-col justify-between transition-colors duration-300"
+                  >
                     <div className="flex justify-between w-full">
-                       <div className="w-4 h-4 border-t-4 border-l-4 border-blue-400 -m-[4px]" />
-                       <div className="w-4 h-4 border-t-4 border-r-4 border-blue-400 -m-[4px]" />
+                       <motion.div 
+                        animate={{ borderColor: detectedValue ? '#10b981' : '#3b82f6' }}
+                        className="w-6 h-6 border-t-4 border-l-4 -m-[4px]" 
+                       />
+                       <motion.div 
+                        animate={{ borderColor: detectedValue ? '#10b981' : '#3b82f6' }}
+                        className="w-6 h-6 border-t-4 border-r-4 -m-[4px]" 
+                       />
                     </div>
                     <div className="flex justify-between w-full">
-                       <div className="w-4 h-4 border-b-4 border-l-4 border-blue-400 -m-[4px]" />
-                       <div className="w-4 h-4 border-b-4 border-r-4 border-blue-400 -m-[4px]" />
+                       <motion.div 
+                        animate={{ borderColor: detectedValue ? '#10b981' : '#3b82f6' }}
+                        className="w-6 h-6 border-b-4 border-l-4 -m-[4px]" 
+                       />
+                       <motion.div 
+                        animate={{ borderColor: detectedValue ? '#10b981' : '#3b82f6' }}
+                        className="w-6 h-6 border-b-4 border-r-4 -m-[4px]" 
+                       />
                     </div>
-                  </div>
+
+                    {/* Scanning indicator text */}
+                    <AnimatePresence>
+                      {isAnalyzing && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute -top-10 left-0 right-0 text-center"
+                        >
+                          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-[0.2em] animate-pulse">
+                            Menganalisis...
+                          </span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
                 </div>
               </div>
             </div>
